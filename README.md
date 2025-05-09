@@ -98,12 +98,6 @@ The system leverages the Mistral Small model via API integration. The process en
 3. Processing of model-generated responses
 4. Extraction of structured information from unstructured candidate inputs
 
-### Data Security Considerations
-
-- Candidate information is maintained locally in structured CSV format
-- Minimal data transmission occurs exclusively for language model consultation
-- Implementation adheres to established data protection principles
-
 ## Conversation Design Methodology
 
 The dialogue architecture is engineered to ensure:
@@ -113,20 +107,6 @@ The dialogue architecture is engineered to ensure:
 3. **Information Extraction**: Efficiently identifying and documenting pertinent candidate details
 4. **Targeted Evaluation**: Generating assessment questions aligned with specific technical domains
 5. **Contextual Awareness**: Maintaining conversation history and adapting responses accordingly
-
-## Development Challenges and Resolutions
-
-### Challenge: Conversation State Management
-- **Resolution**: Implementation of a deterministic state transition system to track assessment progress
-
-### Challenge: Domain-Specific Question Generation
-- **Resolution**: Development of a curated question repository for common technologies, supplemented by dynamic generation for specialized domains
-
-### Challenge: Structured Data Extraction
-- **Resolution**: Utilization of language model capabilities for pattern recognition in unstructured responses
-
-### Challenge: User Experience Optimization
-- **Resolution**: Application of Streamlit's responsive design principles with custom styling enhancements
 
 ## Future Development Roadmap
 
