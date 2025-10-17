@@ -1,1 +1,40 @@
-.env
+###############################
+# FRONTEND IGNORE
+###############################
+frontend/node_modules/
+frontend/.next/
+frontend/.out/
+frontend/build/
+frontend/dist/
+frontend/.env*
+frontend/logs/
+frontend/**/*.tsbuildinfo
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+###############################
+# BACKEND IGNORE
+###############################
+backend/__pycache__/
+backend/*.py[cod]
+backend/.env*
+backend/instance/
+backend/.mypy_cache/
+backend/.tox/
+backend/.coverage
+backend/.pytest_cache/
+backend/.hypothesis/
+backend/.nox/
+backend/venv/
+backend/.vscode/
+
+###############################
+# GLOBAL IGNORE
+###############################
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~

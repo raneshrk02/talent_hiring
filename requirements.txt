@@ -1,5 +1,0 @@
-streamlit==1.30.0
-pandas==2.0.3
-mistralai==0.0.10
-python-dotenv==1.0.0
-nltk==3.8.1
