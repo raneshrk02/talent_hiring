@@ -19,6 +19,7 @@ frontend/yarn-error.log*
 backend/__pycache__/
 backend/*.py[cod]
 backend/.env*
+backend/llama-2-7b.Q5_K_M.gguf
 backend/instance/
 backend/.mypy_cache/
 backend/.tox/

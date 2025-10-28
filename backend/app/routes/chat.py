@@ -6,6 +6,7 @@ import uuid
 from ..models import Candidate
 from ..schemas import SendMessageRequest, SendMessageResponse, CandidateData
 from ..services.ollama_service import OllamaService
+from ..services.gguf_service import GGUFService
 from ..services.scoring_service import ScoringService
 from ..models import Candidate
 from ..system_prompt import (
@@ -19,7 +20,8 @@ from ..system_prompt import (
 
 mrouter = APIRouter()
 router = APIRouter()
-llama2 = OllamaService()
+#llama2 = OllamaService()
+llama2 = GGUFService()
 scorer = ScoringService()
 
 sessions: Dict[str, Dict] = {}
