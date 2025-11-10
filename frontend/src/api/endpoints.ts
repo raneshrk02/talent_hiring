@@ -11,6 +11,9 @@ export const endpoints = {
   getTechnicalQuestions: `${API_BASE_URL}/api/technical-questions`,
   getQuestionsByTech: (tech: string) => `${API_BASE_URL}/api/technical-questions/${tech}`,
   
+  // Candidate management endpoints
+  rejectCandidate: `${API_BASE_URL}/api/candidate/reject`,
+  
   // Export endpoints
 } as const;
 

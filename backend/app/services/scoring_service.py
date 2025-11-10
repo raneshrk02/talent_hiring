@@ -1,9 +1,22 @@
-import spacy #type: ignore
+import logging
+import spacy  # type: ignore
 from typing import List, Dict
 
 class ScoringService:
     def __init__(self):
-        self.nlp = spacy.load("en_core_web_sm")
+        try:
+            # Prefer the small English model for better tagging/lemmatization
+            self.nlp = spacy.load("en_core_web_sm")
+        except Exception as e:
+            # Graceful fallback to a blank English pipeline to avoid runtime crashes
+            logging.warning(
+                "Falling back to spacy.blank('en') because 'en_core_web_sm' is not available: %s",
+                e,
+            )
+            self.nlp = spacy.blank("en")
+            # Add a simple rule-based sentencizer for sentence boundaries
+            if "sentencizer" not in self.nlp.pipe_names:
+                self.nlp.add_pipe("sentencizer")
     
     def calculate_proficiency(self, responses: List[str]) -> float:
         scores = []

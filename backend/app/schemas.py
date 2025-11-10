@@ -32,3 +32,12 @@ class CandidateData(BaseModel):
     tech_skills: Optional[List[str]] = None
     qa_responses: Optional[List[Dict]] = None
     english_proficiency_score: Optional[float] = None
+
+class RejectCandidateRequest(BaseModel):
+    email: str
+    reason: str = "malpractice_fullscreen_exit"
+
+class RejectCandidateResponse(BaseModel):
+    success: bool
+    message: str
+    email: str

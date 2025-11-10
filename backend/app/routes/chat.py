@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
+import logging
 from ..mongodb import get_candidates_collection
 from typing import Dict
 import re
 import uuid
 from ..models import Candidate
 from ..schemas import SendMessageRequest, SendMessageResponse, CandidateData
-from ..services.ollama_service import OllamaService
-from ..services.gguf_service import GGUFService
+from ..services.groq_service import GroqService
 from ..services.scoring_service import ScoringService
 from ..models import Candidate
 from ..system_prompt import (
@@ -20,8 +20,7 @@ from ..system_prompt import (
 
 mrouter = APIRouter()
 router = APIRouter()
-#llama2 = OllamaService()
-llama2 = GGUFService()
+llama2 = GroqService()
 scorer = ScoringService()
 
 sessions: Dict[str, Dict] = {}
@@ -47,7 +46,8 @@ def clean_llm_output(text, value_type="text"):
         return line.title()
     else:
         line = text.strip().split("\n")[0]
-        return line.title()
+        # Preserve original capitalization for general text (avoid title-casing names)
+        return line.strip()
 
 
 def build_candidate_summary(info):
@@ -143,8 +143,57 @@ def extract_skills_from_message(user_message, llm_response):
         user_skills = [s.strip() for s in raw_skills if s.strip()]
         user_skills = [s for s in user_skills if s.lower() not in invalid_skills and len(s) > 1]
         tech_skills = list(dict.fromkeys(user_skills))
+
+    # --- Additional normalization pass ---
+    normalized = []
+    for skill in tech_skills:
+        original = skill
+        # Remove trailing descriptive phrases like "are major", "are minor", "is primary"
+        skill = re.sub(r"\b(are|is)\b.*$", "", skill, flags=re.IGNORECASE).strip()
+        # Remove leading phrases like "primary", "major", "minor"
+        skill = re.sub(r"^(primary|major|minor|main|core)\s+", "", skill, flags=re.IGNORECASE).strip()
+        # Strip residual adjectives at end
+        skill = re.sub(r"\b(major|minor|primary|secondary|main|core)$", "", skill, flags=re.IGNORECASE).strip()
+        # If multi-word and first token is a single letter like 'c', keep only 'c'
+        if re.match(r"^[cC]\b", skill) and len(skill.split()) > 1:
+            skill = "C"
+        # Common language canonicalization
+        if skill.lower() == "js":
+            skill = "JavaScript"
+        if skill.lower() == "py":
+            skill = "Python"
+        if skill.lower() == "c++":
+            skill = "C++"
+        if skill.lower() == "c#":
+            skill = "C#"
+        # Remove any residual punctuation
+        skill = skill.strip(".,;:! ")
+        if skill and skill.lower() not in invalid_skills and skill not in normalized:
+            normalized.append(skill)
+
+    # If we lost everything due to over-cleaning, fall back to original list
+    if normalized:
+        tech_skills = normalized
     
     return tech_skills
+
+
+def order_skills_by_user_input(user_message: str, skills):
+    """Reorder extracted skills to follow the order they appeared in the original user message.
+    If a skill is not found (LLM-added), it is appended at the end preserving relative order.
+    """
+    user_lower = user_message.lower()
+    positions = []
+    not_found = []
+    for s in skills:
+        idx = user_lower.find(s.lower())
+        if idx == -1:
+            not_found.append(s)
+        else:
+            positions.append((idx, s))
+    ordered = [s for _, s in sorted(positions, key=lambda t: t[0])]
+    ordered.extend([s for s in skills if s in not_found])
+    return ordered
 
 
 @router.post("/conversation/message", response_model=SendMessageResponse)
@@ -164,7 +213,8 @@ async def conversation_message(payload: SendMessageRequest):
             "stage": current_stage,
             "data": candidate_info,
             "qa_pairs": [],
-            "question_count": 0
+            "question_count": 0,
+            "skill_index": -1,  # server-authoritative pointer to current skill index
         }
     session = sessions[session_id]
     session["stage"] = current_stage
@@ -204,6 +254,9 @@ async def conversation_message(payload: SendMessageRequest):
                 name = name.split(phrase)[-1].strip()
         
         name = name.strip().split("\n")[0]
+        # Remove common prefixes like "I'm", "I am", "My name is"
+        name = re.sub(r"^(i\s*am|i'm|im|my name is|this is|name is|the name is)\s+",
+                      "", name, flags=re.IGNORECASE)
         name = name.replace(".", "").replace(",", "").strip()
         
         if name and name.lower() not in ["", "your name", "full name", "candidate", "talentbot"]:
@@ -290,8 +343,11 @@ async def conversation_message(payload: SendMessageRequest):
         tech_prompt = TECH_STACK_EXTRACTION_PROMPT.format(user_message=user_message)
         raw_skills = llama2.generate_response(tech_prompt)
         tech_skills = extract_skills_from_message(user_message, raw_skills)
+        # Ensure ordering respects candidate's original message order
+        tech_skills = order_skills_by_user_input(user_message, tech_skills)
         
         updated_candidate_info["techStack"] = tech_skills
+        logging.info(f"Extracted tech skills: {tech_skills}")
         
         tech_skills_str = ', '.join(tech_skills) if tech_skills else "your skills"
         tech_q_intro_prompt = TECH_QUESTIONS_INTRO_PROMPT.format(tech_skills=tech_skills_str)
@@ -305,7 +361,13 @@ async def conversation_message(payload: SendMessageRequest):
                 question = clean_llm_output(llama2.generate_response(tech_question_prompt))
                 technical_question = clean_technical_question(question)
                 
-                message = f"{tech_q_intro}\n\nQuestion {first_valid_index + 1} about {first_skill}:\n{technical_question}"
+                # Start sequential question numbering (avoid confusion when skipping invalid skills)
+                session["question_count"] = 1
+                session["skill_index"] = first_valid_index
+                message = (
+                    f"{tech_q_intro}\n\n"
+                    f"Question {session['question_count']} about {first_skill}:\n{technical_question}"
+                )
                 next_stage = "technicalQuestions"
                 current_tech_question_index = first_valid_index
             else:
@@ -322,15 +384,21 @@ async def conversation_message(payload: SendMessageRequest):
             updated_candidate_info["technicalAnswers"] = {}
         
         tech_stack = updated_candidate_info.get("techStack", [])
+        # Use server-authoritative index if available to avoid client desync
+        idx_pointer = session.get("skill_index")
+        effective_index = (
+            idx_pointer if isinstance(idx_pointer, int) and 0 <= idx_pointer < len(tech_stack)
+            else current_tech_question_index
+        )
         
-        if current_tech_question_index < len(tech_stack):
-            current_skill = tech_stack[current_tech_question_index]
+        if effective_index < len(tech_stack):
+            current_skill = tech_stack[effective_index]
             answer = user_message.strip()
             
             if answer:
                 updated_candidate_info["technicalAnswers"][current_skill] = answer
         
-        next_index = current_tech_question_index + 1
+        next_index = effective_index + 1
         next_valid_index = get_next_valid_skill_index(tech_stack, next_index)
         
         if next_valid_index is not None:
@@ -339,7 +407,12 @@ async def conversation_message(payload: SendMessageRequest):
             technical_question = clean_llm_output(llama2.generate_response(tech_question_prompt))
             technical_question = clean_technical_question(technical_question)
             
-            message = f"Question {next_valid_index + 1} about {next_skill}:\n{technical_question}"
+            # Increment sequential question counter for display
+            session["question_count"] = session.get("question_count", 0) + 1
+            session["skill_index"] = next_valid_index
+            message = (
+                f"Question {session['question_count']} about {next_skill}:\n{technical_question}"
+            )
             next_stage = "technicalQuestions"
             current_tech_question_index = next_valid_index
         else:
@@ -397,7 +470,8 @@ async def conversation_message(payload: SendMessageRequest):
             location=updated_candidate_info.get("location"),
             tech_skills=tech_skills,
             qa_responses=qa_responses_list,
-            english_proficiency_score=english_proficiency_score
+            english_proficiency_score=english_proficiency_score,
+            status="completed"
         )
         candidates_collection = get_candidates_collection()
         candidates_collection.insert_one(candidate.dict())

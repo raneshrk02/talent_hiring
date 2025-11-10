@@ -1,3 +1,9 @@
+"""Deprecated OllamaService.
+
+This file is retained for reference only after migrating to Groq.
+Prefer using `GroqService` in `groq_service.py`.
+"""
+
 import requests
 import logging
 from ..config import settings

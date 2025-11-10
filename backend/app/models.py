@@ -14,4 +14,7 @@ class Candidate(BaseModel):
     tech_skills: Optional[List[str]] = None
     qa_responses: Optional[List[Dict]] = None
     english_proficiency_score: Optional[float] = 0.0
+    status: Optional[str] = "active"  # Can be: "active", "rejected", "completed"
+    rejection_reason: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

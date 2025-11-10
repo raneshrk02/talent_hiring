@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .mongodb import get_mongo_db
-from .routes import chat, export
+from .routes import chat, export, candidate
 
  # MongoDB does not require table creation
 
@@ -19,6 +19,7 @@ app.add_middleware(
 # Include routers
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(export.router, prefix="/api", tags=["export"])
+app.include_router(candidate.router, prefix="/api", tags=["candidate"])
 
 @app.get("/")
 async def root():

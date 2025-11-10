@@ -42,6 +42,7 @@ class GGUFService:
         
         formatted_prompt = f"""<|system|>
                                 {system_context}
+                                
                                 <|user|>
                                 {prompt}
                                 <|assistant|>"""
