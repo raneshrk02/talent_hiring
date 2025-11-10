@@ -53,7 +53,24 @@ export const CandidateSummary = ({ candidateInfo }: CandidateSummaryProps) => {
           </div>
         )}
         
-        {Object.keys(candidateInfo.technicalAnswers).length > 0 && (
+        {/* Support both new (technicalQA) and legacy (technicalAnswers) formats */}
+        {(candidateInfo.technicalQA && candidateInfo.technicalQA.length > 0) && (
+          <div>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Technical Q&A</p>
+            <div className="space-y-3">
+              {candidateInfo.technicalQA.map((qa, index) => (
+                <div key={index} className="bg-muted rounded-lg p-3">
+                  <p className="text-sm font-medium mb-1">Q: {qa.question}</p>
+                  <p className="text-sm text-muted-foreground">A: {qa.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Fallback to legacy format if technicalQA is not available */}
+        {(!candidateInfo.technicalQA || candidateInfo.technicalQA.length === 0) && 
+         Object.keys(candidateInfo.technicalAnswers).length > 0 && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-2">Technical Q&A</p>
             <div className="space-y-3">

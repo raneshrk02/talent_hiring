@@ -347,6 +347,8 @@ async def conversation_message(payload: SendMessageRequest):
         tech_skills = order_skills_by_user_input(user_message, tech_skills)
         
         updated_candidate_info["techStack"] = tech_skills
+        # Initialize Q&A storage as a list
+        updated_candidate_info["technicalQA"] = []
         logging.info(f"Extracted tech skills: {tech_skills}")
         
         tech_skills_str = ', '.join(tech_skills) if tech_skills else "your skills"
@@ -364,6 +366,7 @@ async def conversation_message(payload: SendMessageRequest):
                 # Start sequential question numbering (avoid confusion when skipping invalid skills)
                 session["question_count"] = 1
                 session["skill_index"] = first_valid_index
+                session["last_question"] = technical_question  # Store the question for next answer
                 message = (
                     f"{tech_q_intro}\n\n"
                     f"Question {session['question_count']} about {first_skill}:\n{technical_question}"
@@ -380,8 +383,8 @@ async def conversation_message(payload: SendMessageRequest):
 
     # === TECHNICAL QUESTIONS STAGE ===
     elif current_stage == "technicalQuestions":
-        if "technicalAnswers" not in updated_candidate_info:
-            updated_candidate_info["technicalAnswers"] = {}
+        if "technicalQA" not in updated_candidate_info:
+            updated_candidate_info["technicalQA"] = []
         
         tech_stack = updated_candidate_info.get("techStack", [])
         # Use server-authoritative index if available to avoid client desync
@@ -391,12 +394,18 @@ async def conversation_message(payload: SendMessageRequest):
             else current_tech_question_index
         )
         
+        # Store the previous question-answer pair
         if effective_index < len(tech_stack):
             current_skill = tech_stack[effective_index]
             answer = user_message.strip()
+            last_question = session.get("last_question", f"Question about {current_skill}")
             
             if answer:
-                updated_candidate_info["technicalAnswers"][current_skill] = answer
+                # Append as a proper Q&A pair
+                updated_candidate_info["technicalQA"].append({
+                    "question": last_question,
+                    "answer": answer
+                })
         
         next_index = effective_index + 1
         next_valid_index = get_next_valid_skill_index(tech_stack, next_index)
@@ -410,6 +419,7 @@ async def conversation_message(payload: SendMessageRequest):
             # Increment sequential question counter for display
             session["question_count"] = session.get("question_count", 0) + 1
             session["skill_index"] = next_valid_index
+            session["last_question"] = technical_question  # Store for next iteration
             message = (
                 f"Question {session['question_count']} about {next_skill}:\n{technical_question}"
             )
@@ -440,16 +450,21 @@ async def conversation_message(payload: SendMessageRequest):
         elif not isinstance(tech_skills, list):
             tech_skills = []
 
-        qa_responses = updated_candidate_info.get("technicalAnswers", {})
-        if isinstance(qa_responses, str):
-            try:
-                qa_responses = json.loads(qa_responses)
-            except Exception:
-                qa_responses = {}
+        # Get Q&A responses - now properly structured
+        qa_responses_list = updated_candidate_info.get("technicalQA", [])
         
-        qa_responses_list = []
-        for q, a in qa_responses.items():
-            qa_responses_list.append({"question": str(q).title(), "answer": str(a).strip()})
+        # Fallback to old format if technicalQA doesn't exist (backward compatibility)
+        if not qa_responses_list:
+            qa_responses = updated_candidate_info.get("technicalAnswers", {})
+            if isinstance(qa_responses, str):
+                try:
+                    qa_responses = json.loads(qa_responses)
+                except Exception:
+                    qa_responses = {}
+            
+            qa_responses_list = []
+            for q, a in qa_responses.items():
+                qa_responses_list.append({"question": str(q).title(), "answer": str(a).strip()})
 
         years_experience = updated_candidate_info.get("yearsExperience")
         if isinstance(years_experience, str):
@@ -457,7 +472,7 @@ async def conversation_message(payload: SendMessageRequest):
             years_experience = int(match.group(0)) if match else 0
 
         # Calculate English proficiency score using ScoringService
-        answer_texts = [str(a).strip() for q, a in qa_responses.items() if a]
+        answer_texts = [item["answer"] for item in qa_responses_list if item.get("answer")]
         english_proficiency_score = scorer.calculate_proficiency(answer_texts) if answer_texts else 0.0
 
         candidate = Candidate(

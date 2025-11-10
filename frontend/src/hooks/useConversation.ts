@@ -11,6 +11,7 @@ const initialCandidateInfo: CandidateInfo = {
   location: '',
   techStack: [],
   technicalAnswers: {},
+  technicalQA: [],
   timestamp: '',
 };
 

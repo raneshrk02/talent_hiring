@@ -2,6 +2,9 @@
 
 A modern, full-stack platform for technology recruitment, featuring an AI-powered interview chatbot, candidate info extraction, and recruiter tools.
 
+## Demo
+🎥 [Watch the demonstration on YouTube](https://www.youtube.com/watch?v=TWSXg00sbnw)
+
 ## Features
 - **AI Interview Chatbot**: FastAPI backend with Groq-hosted LLMs for dynamic candidate screening and technical Q&A.
 - **Candidate Info Extraction**: Robust parsing of candidate details (name, email, phone, experience, tech stack, etc.).

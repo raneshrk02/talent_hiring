@@ -1,3 +1,8 @@
+export interface QAPair {
+  question: string;
+  answer: string;
+}
+
 export interface CandidateInfo {
   fullName: string;
   email: string;
@@ -6,7 +11,8 @@ export interface CandidateInfo {
   desiredPosition: string;
   location: string;
   techStack: string[];
-  technicalAnswers: Record<string, string>;
+  technicalAnswers: Record<string, string>; // Legacy support
+  technicalQA?: QAPair[]; // New format
   timestamp: string;
 }
 

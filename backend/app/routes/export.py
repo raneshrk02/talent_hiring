@@ -13,6 +13,17 @@ async def export_csv():
 
     data = []
     for c in candidates:
+        # Format Q&A responses as readable text
+        qa_responses = c.get("qa_responses", [])
+        qa_text = ""
+        if qa_responses:
+            qa_pairs = []
+            for idx, qa in enumerate(qa_responses, 1):
+                question = qa.get("question", "")
+                answer = qa.get("answer", "")
+                qa_pairs.append(f"Q{idx}: {question}\nA{idx}: {answer}")
+            qa_text = "\n\n".join(qa_pairs)
+        
         data.append({
             "ID": c.get("id"),
             "Name": c.get("name"),
@@ -22,6 +33,7 @@ async def export_csv():
             "Position": c.get("desired_position"),
             "Location": c.get("location"),
             "Tech Skills": ", ".join(c.get("tech_skills", [])) if c.get("tech_skills") else "",
+            "Technical Q&A": qa_text,
             "English Score": c.get("english_proficiency_score"),
             "Created At": c.get("created_at")
         })

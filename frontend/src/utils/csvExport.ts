@@ -13,9 +13,17 @@ export const exportToCSV = (candidateInfo: CandidateInfo) => {
     'Technical Questions & Answers'
   ];
 
-  const techAnswers = Object.entries(candidateInfo.technicalAnswers)
-    .map(([q, a]) => `Q: ${q}\nA: ${a}`)
-    .join('\n\n');
+  // Support both new (technicalQA) and legacy (technicalAnswers) formats
+  let techAnswers = '';
+  if (candidateInfo.technicalQA && candidateInfo.technicalQA.length > 0) {
+    techAnswers = candidateInfo.technicalQA
+      .map((qa, idx) => `Q${idx + 1}: ${qa.question}\nA${idx + 1}: ${qa.answer}`)
+      .join('\n\n');
+  } else {
+    techAnswers = Object.entries(candidateInfo.technicalAnswers)
+      .map(([q, a]) => `Q: ${q}\nA: ${a}`)
+      .join('\n\n');
+  }
 
   const row = [
     candidateInfo.timestamp,
